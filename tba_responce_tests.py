@@ -694,6 +694,36 @@ def unflatten(flat_dict):
 
     return _unflatten(fix_dict, separator = ' ')['a']
 
-from pprint import pprint
+def set_all_values(dict_or_list, value, _dict = dict, _list = list):
+    """Take a json-esc dict or list and set all values to the value.
+       All keys are preserved, as is the length of all lists.
+    """
+    # Process if dict.
+    if isinstance(dict_or_list, _dict):
+        for k, v in dict_or_list.items():
+            if isinstance(v, (_dict, _list)):
+                # Recursive set.
+                set_all_values(v, value, _dict = _dict, _list = _list)
+            # Otherwise,
+            dict_or_list[k] = value
 
-pprint(flatten(dpath.search(stats, "oprs")))
+    # Process if list.
+    elif isinstance(dict_or_list, _list):
+        for i, v in enumerate(dict_or_list):
+            if isinstance(v, (_dict, _list)):
+                # Recursive set.
+                set_all_values(v, value, _dict = _dict, _list = _list)
+            # Set value.
+            dict_or_list[i] = value
+
+    else: # Class past that is not in _dict or _list.
+        raise ValueError("dict_or_list was %r, not %r or %r." %
+                         (type(dict_or_list, _dict, _list)))
+    
+
+from pprint import pprint
+import copy
+
+#pprint(flatten(dpath.search(stats, "oprs")))
+m = copy.deepcopy(match)
+dpath.set(m, "**", None, afilter = lambda x: False if isinstance(x, dict) else print(x) or True)
