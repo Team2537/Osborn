@@ -45,6 +45,9 @@ from httplib2 import ServerNotFoundError
 from flatten_json import flatten as _flatten
 from flatten_json import unflatten_list as _unflatten
 
+# And then import dpath, to fix the problems with json flattening.
+import dpath
+
 # So flatten_json has some issues.
 # Particularly, if there is an underscore in the key, it breaks the unflatten.
 #
@@ -376,13 +379,10 @@ class Osborn_Command(cmd.Cmd):
         # So there is that.
         # Now, if there is a score_breakdown, sanitize it and send it back through.
         if score_breakdown is not None:
-            flattened_score = flatten(score_breakdown)
-
-            # Remove all values.
-            for key in flattened_score:
-                flattened_score[key] = None
-
-            blank_score = unflatten(flattened_score)
+            blank_score = dpath.util.set(score_breakdown, "**", None, # Set to None
+                                         afilter = lambda x: not isinstance(x, (dict, list)))
+            # afilter is needed to prevent the setting of the dict and lists.
+            # I think this may be a problem with dpath, but this will work.
 
             # Brilliant! So now, for any match with score_breakdown == None
             # Replace with blank score.

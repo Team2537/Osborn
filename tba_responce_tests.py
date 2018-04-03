@@ -726,4 +726,4 @@ import copy
 
 #pprint(flatten(dpath.search(stats, "oprs")))
 m = copy.deepcopy(match)
-dpath.set(m, "**", None, afilter = lambda x: False if isinstance(x, dict) else print(x) or True)
+dpath.set(m, "**", None, afilter = lambda x: False if isinstance(x, (dict, list)) else print(x) or True)
