@@ -25,6 +25,21 @@ Valid commands:
 """
 DEBUG = True
 
+try:
+    unicode
+except NameError:
+    unicode = str
+
+try:
+    basestring
+except NameError:
+    basestring = (str, unicode)
+
+try:
+    raw_input
+except NameError:
+    raw_input = input
+
 import re
 import cmd
 import sys
@@ -43,7 +58,6 @@ from httplib2 import ServerNotFoundError
 
 # For json, use a json flattening library (thank goodness this exists!!!!)
 from flatten_json import flatten as _flatten
-from flatten_json import unflatten_list as _unflatten
 
 # And then import dpath, to fix the problems with json flattening.
 import dpath
@@ -78,7 +92,7 @@ def _construct_key(previous_key, separator, new_key):
             new_key += "_"
         else:
             new_key = new_key.replace(' ', '_').title()
-            
+
     if previous_key:
         return "{}{}{}".format(previous_key, ' ', new_key)
     else:
@@ -93,35 +107,9 @@ def flatten(nested_list_or_dict):
                                     enumerate(nested_list_or_dict)])
 
         # Now, it will be a dict.
-        
+
     # Note, the seperator is redundant as _construct_key overrides it.
     return _flatten(nested_list_or_dict, separator = ' ', _construct_key = _construct_key)
-
-def unflatten(flat_dict):
-    """
-    Unflatten a dictionary. This may produce either a dictionary, or a list.
-    """
-    # Actually, nest the dictionary. If the dictionary has numbers as the most
-    # outside values, like {'0': 1, '1': 2, '2': 3, '3': 4}, it causes an
-    # unexpected error.
-    fix_dict = dict([('a ' + key, value) for key, value in flat_dict.items()])
-
-    return _unflatten(fix_dict, separator = ' ')['a']
-        
-try:
-    unicode
-except NameError:
-    unicode = str
-
-try:
-    basestring
-except NameError:
-    basestring = (str, unicode)
-
-try:
-    raw_input
-except NameError:
-    raw_input = input
 
 timeout = 10 # seconds
 
@@ -354,7 +342,7 @@ class Osborn_Command(cmd.Cmd):
             # First, make sure that all the fields that SHOULD be present, are!!
 ##            for metric in TBA_MATCH_FORMAT:
 ##                if metric not in match:
-##                    match[metric] = 
+##                    match[metric] =
             del match['event_key']
             for alliance in ('red', 'blue'):
                 for team_metric in ('team_keys', 'dq_team_keys', 'surrogate_team_keys'):
@@ -695,7 +683,7 @@ if __name__ == '__main__':
             # Reraise that execptions. Prevent this from
             # going into the general error case.
             raise
-        
+
         except ServerNotFoundError:
             print("Server not found.")
             time.sleep(.5) # Wait for things to change.
