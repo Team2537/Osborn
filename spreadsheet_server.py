@@ -111,6 +111,57 @@ def flatten(nested_list_or_dict):
     # Note, the seperator is redundant as _construct_key overrides it.
     return _flatten(nested_list_or_dict, separator = ' ', _construct_key = _construct_key)
 
+def flatten_to_table(nested_list_or_dict):
+    """Now, flatten is used to make a printable table, so do that."""
+    # If blank, its blank.
+    if not nested_list_or_dict:
+        return []
+    # First, check if this is a simple list. If so, return as is.
+    if isinstance(nested_list_or_dict, list):
+        if all([isinstance(x, dict) for x in nested_list_or_dict]) or \
+           all([isinstance(x, list) for x in nested_list_or_dict]):
+            # List of dicts.
+
+            # Use the first item to generate the headers.
+            table = [flatten(nested_list_or_dict[0]).keys()]
+
+            table.extend(flatten(d).values() for d in nested_list_or_dict)
+
+##            # But Make the keys go across columns, not row.
+##            # Rotate 90 degrees.
+##            table = list(zip(*table))
+
+            return table
+        
+##        return [flatten(x) if isinstance(x, (dict, list)) else x for x in nested_list_or_dict]
+
+        else:
+            # Other items, not list or dict. Fine as is.
+            return nested_list_or_dict
+
+    elif isinstance(nested_list_or_dict, dict):
+        nested_list_or_dict = flatten(nested_list_or_dict)
+
+        return list(zip(*nested_list_or_dict.items()))
+
+    else:
+        raise TypeError("Not list or dict")
+##        if value and isinstance(value[0], dict):
+##            new_value = [dict_to_list(flatten(value[0]))[0]]
+##            new_value.extend(dict_to_list(flatten(v))[1] for v in value)
+##
+##            value = new_value
+##
+##        elif isinstance(value, dict):
+##            value = dict_to_list(flatten(value))
+
+##    #else
+##    flat = flatten(nested_list_or_dict)
+##
+##    # This will always be a dictionary.
+##    # Each key
+##    return list(zip(*flat.items()))
+
 timeout = 10 # seconds
 
 from math import trunc as _trunc
@@ -277,10 +328,7 @@ class Osborn_Command(cmd.Cmd):
 
         data = query_json(data, query)
 
-        if isinstance(value, dict):
-            value = dict_to_list(flatten(value))
-
-        return value
+        return flatten_to_table(data)
 
     @cache_to('matches')
     def load_matches(self):
@@ -368,8 +416,9 @@ class Osborn_Command(cmd.Cmd):
             pass
 
         # Don't forget, data should be sorted by predicted time.
-        data.sort(key=lambda x:(x["actual_time"] or float('inf'),
-                                x["predicted_time"] or float('inf'),
+        # Or if that fails, actual_time, or post_result_time, or key.
+        data.sort(key=lambda x:(x["predicted_time"] or float('inf'),
+                                x["actual_time"] or float('inf'),
                                 x["post_result_time"] or float('inf'),
                                 x["key"]))
 
@@ -382,14 +431,20 @@ class Osborn_Command(cmd.Cmd):
 
         data = query_json(data, query)
 
-        elif isinstance(value, dict):
-            value = dict_to_list(flatten(value))
+##        if value and isinstance(value[0], dict):
+##            new_value = [dict_to_list(flatten(value[0]))[0]]
+##            new_value.extend(dict_to_list(flatten(v))[1] for v in value)
+##
+##            value = new_value
+##
+##        elif isinstance(value, dict):
+##            value = dict_to_list(flatten(value))
 
-        # If there was no path, auto rotate table.
-        if not path:
-            value = list(zip(*value))
+##        # If there was no path, auto rotate table.
+##        if not path:
+##            value = list(zip(*value))
 
-        return value
+        return flatten_to_table(data)
 
     @cache_to('predictions')
     def load_predictions(self):
