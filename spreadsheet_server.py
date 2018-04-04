@@ -306,10 +306,21 @@ class Osborn_Command(cmd.Cmd):
         # This needs to have the keys for score.
         score_breakdown = None
         for match in data:
-            # First, make sure that all the fields that SHOULD be present, are!!
-##            for metric in TBA_MATCH_FORMAT:
-##                if metric not in match:
-##                    match[metric] =
+            # First, fix videos.
+            # Typically, videos is not returned until there are videos.
+            # This is troublesome for me.
+            videos = match.setdefault("videos", [])
+            while len(videos) < 5: videos.append({"key": None, "type": None})
+
+            # Also, things break with more than 5.
+            if len(videos) > 5:
+                print("There are too many videos. Jettisoning %r" % videos[5:])
+
+                del videos[5:]
+                
+
+            # So the event_key is needed to get this data, which includes the
+            # event_key. This is just very redundant so remove it.
             del match['event_key']
             for alliance in ('red', 'blue'):
                 for team_metric in ('team_keys', 'dq_team_keys', 'surrogate_team_keys'):
@@ -318,8 +329,14 @@ class Osborn_Command(cmd.Cmd):
                     teams = list(map(get_team_number, teams))
 
                     # This list also needs exactly 3 elements as there are can be upto
-                    # three entiries.
+                    # three entries.
                     while len(teams) < 3: teams.append(None)
+
+                    # There should never by more than 3, and enforce that.
+                    if len(teams) > 3:
+                        print("There are too many teams. Jettisoning %r" % teams[3:])
+
+                        del teams[3:]
 
                     match['alliances'][alliance][team_metric] = teams
 
