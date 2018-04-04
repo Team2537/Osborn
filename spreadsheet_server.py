@@ -361,13 +361,6 @@ class Osborn_Command(cmd.Cmd):
     def do_matches(self, query):
         """Respond to a request for matches."""
         # Get the results so then query from.
-        data = self.cache.get("matches", None)
-
-        # Data is a dictionary, through and through.
-        if data is None:
-            self.load_matches()
-            data = self.cache["matches"]
-
         data = self.load_matches()
 
         data = query_json(data, query)
@@ -399,7 +392,6 @@ class Osborn_Command(cmd.Cmd):
 
         # Get the results so then query from.
         data = self.load_predictions()
-        data = self.cache.get('predictions', None)
 
         # Data is a dictionary, through and through.
         if data is None:
