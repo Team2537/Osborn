@@ -61,3 +61,44 @@ def unflatten(flat_dict):
     fix_dict = dict([('a ' + key, value) for key, value in flat_dict.items()])
 
     return _unflatten(fix_dict, separator = ' ')['a']
+
+##def flatten_dict(d):
+##    """Flatten a dictionary down."""
+##    def expand(key, value):
+##        if isinstance(value, dict):
+##            return [ (key.replace('_', '__') + '_' + k, v) for k, v in flatten_dict(value).items() ]
+##        else:
+##            return [ (key, value) ]
+##
+##    items = [ item for k, v in d.items() for item in expand(k, v) ]
+##
+##    return dict(items)
+##
+##from collections import Iterable
+##
+###https://stackoverflow.com/questions/952914/making-a-flat-list-out-of-list-of-lists-in-python
+##def flatten_list(items):
+##    """Yield items from any nested iterable; see REF."""
+##    for x in items:
+##        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+##            yield from flatten(x)
+##        else:
+##            yield x
+
+##def flatten(items):
+##    """Flattens a list, dictionary, or set into lists nested two deep at most.
+##       Ignores strings and bytes.
+##    """
+##    # If this is a dictionary, process that.
+##    if isinstance(items, dict): # Ordereddicts also are counted here
+##        value = list(zip(*flatten_dict(items).items()))
+##
+##        return value
+##
+##    elif isinstance(items, Iterable) and not isinstance(items, (str, bytes)):
+##        value = list(flatten_list(items))
+##
+##        return value
+##
+##    else:
+##        return items
