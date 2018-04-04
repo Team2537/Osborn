@@ -91,7 +91,7 @@ def _construct_key(previous_key, separator, new_key):
             # Append _ to make sure it is not read as a number.
             new_key += "_"
         else:
-            new_key = new_key.replace(' ', '_').title()
+            new_key = new_key.replace(' ', '_')
 
     if previous_key:
         return "{}{}{}".format(previous_key, ' ', new_key)
@@ -130,6 +130,18 @@ def get_team_number(team_tag):
         return int(team_tag[3:])
     else:
         raise ValueError("Not a team tag %r" % team_tag)
+
+def query_json(nested_list_or_dict, query):
+    """Find the result wanted in the nested_list_or_dict through a glob query.
+       The only main change is no query, now just returns the full result.
+       Also, a "^" at the end of the query indicates that the table should be
+       rotated 90 degrees."""
+    query = query.strip()
+        
+    if not query:
+        return nested_list_or_dict
+
+    return dpath.util.values(nested_list_or_dict, query, separator = " ")
 
 class TBAResponceError(BaseException):
     """Base error from connections to the blue alliance."""
@@ -183,47 +195,6 @@ class Osborn_Command(cmd.Cmd):
             with open(file) as f:
                 self.tba_auth_key = json.load(f)["tba_auth_key"]
         return self.tba_auth_key
-
-    @staticmethod
-    def resolve_osborn_word_maker(word):
-        """Take the osborn word and give a function to apply to the list."""
-        # First, of the world is a integer, use it to get an element from list.
-        if word.isdigit():
-            return itemgetter(int(word))
-
-##        # If it is "*", handle it as a list wild card. Apply following critera
-##        # to all elements in list and return this list.
-##        elif word == "*":
-##            def a(data):
-##
-
-        # Otherwise, use this as a key for a dictionary.
-        else:
-            return itemgetter(word)
-
-    @staticmethod
-    def _json_link_resolver(link, sort_key = None):
-        """Take the json and build the list of links from that.
-        json should either be a nested dictionary, or a list of dictionaries.
-
-        Returns a function that will get the needed values from json.
-        """
-        itemgetters = map(itemgetter, link.split())
-
-        def get_link(json):
-            try:
-                for getter in itemgetters:
-                    json = getter(json)
-                return json
-            except KeyError:
-                raise BadIndexError(sys.exc_info()[1].args)
-            except IndexError:
-                raise BadIndexError(sys.exc_info()[1].args)
-##            except TypeError:
-##                # This is from (1,2,3)["test"]
-##                raise BadIndexError(sys.exc_info()[1].args)
-
-        return get_link
 
     def cache_to(store_key):
         """Decorator to control the caching of urls."""
@@ -297,18 +268,14 @@ class Osborn_Command(cmd.Cmd):
 
         data['oprs'], data['dprs'], data['ccwms'] = oprs, dprs, ccwms
 
-
-        #self.cache['stats'] = data
         return data
 
-    def do_stats(self, value):
+    def do_stats(self, query):
         """oprs, dprs, ccwms"""
-        value_getter = self._json_link_resolver(value)
-
         # Get the results so then query from.
         data = self.load_stats()
 
-        value = value_getter(data)
+        data = query_json(data, query)
 
         if isinstance(value, dict):
             value = dict_to_list(flatten(value))
@@ -391,7 +358,7 @@ class Osborn_Command(cmd.Cmd):
 
         return data
 
-    def do_matches(self, path):
+    def do_matches(self, query):
         """Respond to a request for matches."""
         # Get the results so then query from.
         data = self.cache.get("matches", None)
@@ -401,19 +368,9 @@ class Osborn_Command(cmd.Cmd):
             self.load_matches()
             data = self.cache["matches"]
 
-        path = path.strip()
+        data = self.load_matches()
 
-        if path:
-            value_getter = self._json_link_resolver(path)
-            value = [value_getter(m) for m in data]
-        else:
-            value = data
-
-        if value and isinstance(value[0], dict):
-            new_value = [dict_to_list(flatten(value[0]))[0]]
-            new_value.extend(dict_to_list(flatten(v))[1] for v in value)
-
-            value = new_value
+        data = query_json(data, query)
 
         elif isinstance(value, dict):
             value = dict_to_list(flatten(value))
