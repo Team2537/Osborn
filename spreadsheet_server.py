@@ -132,12 +132,21 @@ def flatten_to_table(nested_list_or_dict):
 ##            table = list(zip(*table))
 
             return table
-        
+
 ##        return [flatten(x) if isinstance(x, (dict, list)) else x for x in nested_list_or_dict]
 
+        elif any(isinstance(x, (dict, list)) for x in nested_list_or_dict):
+            # So, there are lists and dicts, but it is not consistant!!!!
+            # Just flatten everything!!!
+            print("*** Uneven response")
+            nested_list_or_dict = flatten(nested_list_or_dict)
+
+            return list(zip(*nested_list_or_dict.items()))
+
         else:
-            # Other items, not list or dict. Fine as is.
-            return nested_list_or_dict
+            # This is a list of just items. Wrap and return.
+            # That will work fine.
+            return [nested_list_or_dict]
 
     elif isinstance(nested_list_or_dict, dict):
         nested_list_or_dict = flatten(nested_list_or_dict)
@@ -192,7 +201,16 @@ def query_json(nested_list_or_dict, query):
     if not query:
         return nested_list_or_dict
 
-    return dpath.util.values(nested_list_or_dict, query, separator = " ")
+    # If ** is used at the end a query, a list or a dictionary should never be
+    # returned. Otherwise, both are list, and it's contents are returned.
+    if query.endswith("**"):
+        return dpath.util.values(
+            nested_list_or_dict, query, separator = " ",
+            # Don't return dict's and lists. Only thier contents.
+            afilter = lambda x: not isinstance(x, (dict, list)))
+
+    else:
+        return dpath.util.values(nested_list_or_dict, query, separator = " ")
 
 class TBAResponceError(BaseException):
     """Base error from connections to the blue alliance."""
@@ -365,7 +383,7 @@ class Osborn_Command(cmd.Cmd):
                 print("There are too many videos. Jettisoning %r" % videos[5:])
 
                 del videos[5:]
-                
+
 
             # So the event_key is needed to get this data, which includes the
             # event_key. This is just very redundant so remove it.
@@ -678,6 +696,11 @@ if __name__ == '__main__':
             # Probably caused by dodgy internet on this end. Though it is
             # impossible to tell. This is a general error.
             print("gspread.exceptions.RequestError, %s" % list(sys.exc_info()[1].args))
+
+        except gspread.v4.exceptions.APIError:
+            # Invalid request.
+            # Most likey this would cause the sheet to get too big. (Over 2m cells).
+            traceback.print_exc()
 
         except:
             # If there is some odd error, keep executing.
