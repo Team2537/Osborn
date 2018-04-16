@@ -4,6 +4,9 @@ Results/
 client_secret_gsheet.json
 client_secret_tba.json
 
+# As secret files are no joke, and mistakes happen, also don't track ANY .json files.
+*.json
+
 # Python related ignore stuff.
 # Byte-compiled / optimized / DLL files
 __pycache__/
