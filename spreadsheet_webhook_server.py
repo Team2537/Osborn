@@ -22,6 +22,29 @@ Valid commands:
 !Osborn stats ccwms
 !Osborn predictions
 !Osborn matches
+
+There is also a special operator that can be added to the end of a query.
+"^" this causes the table that would be returned to be rotated 90 degrees,
+forcing the output to travel down over rows, instead of across columns.
+
+    !Osborn matches * alliances red team_keys ^
+
+
+TODO:
+1)* Implement caching of the google docs information to prevent the need to
+  * sign-in to the google docs every time it is checked. The catch is the
+  * credentials still need to be reset approximetly every half hour.
+
+2)* Specify the token for TBA data in the header, instead of the url.
+  * This would prevent possible vulnerability in someone could get the
+  * token from logs or the screen. TBA says this also will speed up responses.
+
+3)* Use TBA time headers and caching to prevent unnessary data trasnfer and
+  * time required. Currently, caches are only held as long as it takes to update
+  * the google spreadsheet.
+
+4)* Investigate Webhooks as a more effecient method for handling updating.
+  * https://www.thebluealliance.com/apidocs/webhooks
 """
 DEBUG = True
 
@@ -48,6 +71,8 @@ import time
 import gspread
 import requests
 import traceback
+import json
+from flask import Flask, request
 from pprint import pprint
 from operator import itemgetter
 from collections import OrderedDict
@@ -74,6 +99,16 @@ import dpath
 # also not unflatten well.
 # >>> unflatten(flatten({'a': {'0':7}}))
 # {'a': [7]}
+
+# Create flask app to listen for webhooks
+webhook_server = Flask(__name__)
+
+@webhook_server.route('/', methods=['POST'])
+def handle_webhooks():
+    data = json.loads(request.data.decode())
+    if (data['message_type'] == "match_score"):
+        main(url)
+    return "OK"
 
 # To address these issues, prevent numbers and underscores from being keys.
 def _construct_key(previous_key, separator, new_key):
@@ -111,7 +146,7 @@ def flatten(nested_list_or_dict):
     # Note, the seperator is redundant as _construct_key overrides it.
     return _flatten(nested_list_or_dict, separator = ' ', _construct_key = _construct_key)
 
-def flatten_to_table(nested_list_or_dict):
+def flatten_to_table(nested_list_or_dict, rotate = False):
     """Now, flatten is used to make a printable table, so do that."""
     # If blank, its blank.
     if not nested_list_or_dict:
@@ -127,12 +162,6 @@ def flatten_to_table(nested_list_or_dict):
 
             table.extend(flatten(d).values() for d in nested_list_or_dict)
 
-##            # But Make the keys go across columns, not row.
-##            # Rotate 90 degrees.
-##            table = list(zip(*table))
-
-            return table
-
 ##        return [flatten(x) if isinstance(x, (dict, list)) else x for x in nested_list_or_dict]
 
         elif any(isinstance(x, (dict, list)) for x in nested_list_or_dict):
@@ -141,35 +170,27 @@ def flatten_to_table(nested_list_or_dict):
             print("*** Uneven response")
             nested_list_or_dict = flatten(nested_list_or_dict)
 
-            return list(zip(*nested_list_or_dict.items()))
+            # Now dict, turn to table.
+            table = list(zip(*nested_list_or_dict.items()))
 
         else:
             # This is a list of just items. Wrap and return.
             # That will work fine.
-            return [nested_list_or_dict]
+            table = [nested_list_or_dict]
 
     elif isinstance(nested_list_or_dict, dict):
         nested_list_or_dict = flatten(nested_list_or_dict)
 
-        return list(zip(*nested_list_or_dict.items()))
+        table = list(zip(*nested_list_or_dict.items()))
 
     else:
         raise TypeError("Not list or dict")
-##        if value and isinstance(value[0], dict):
-##            new_value = [dict_to_list(flatten(value[0]))[0]]
-##            new_value.extend(dict_to_list(flatten(v))[1] for v in value)
-##
-##            value = new_value
-##
-##        elif isinstance(value, dict):
-##            value = dict_to_list(flatten(value))
 
-##    #else
-##    flat = flatten(nested_list_or_dict)
-##
-##    # This will always be a dictionary.
-##    # Each key
-##    return list(zip(*flat.items()))
+    if rotate:
+        # Rotate 90 degrees.
+        table = list(zip(*table))
+
+    return table
 
 timeout = 10 # seconds
 
@@ -197,9 +218,17 @@ def query_json(nested_list_or_dict, query):
        Also, a "^" at the end of the query indicates that the table should be
        rotated 90 degrees."""
     query = query.strip()
-        
+
+    # Allow for rotate table.
+    if query[-1:] == "^":
+        rotate = True
+        query = query[:-1].rstrip()
+    else:
+        rotate = False
+
+    # If query is "", don't do anything (effectly the same as **)
     if not query:
-        return nested_list_or_dict
+        return nested_list_or_dict, rotate
 
     # If ** is used at the end a query, a list or a dictionary should never be
     # returned. Otherwise, both are list, and it's contents are returned.
@@ -207,10 +236,10 @@ def query_json(nested_list_or_dict, query):
         return dpath.util.values(
             nested_list_or_dict, query, separator = " ",
             # Don't return dict's and lists. Only thier contents.
-            afilter = lambda x: not isinstance(x, (dict, list)))
+            afilter = lambda x: not isinstance(x, (dict, list))), rotate
 
     else:
-        return dpath.util.values(nested_list_or_dict, query, separator = " ")
+        return dpath.util.values(nested_list_or_dict, query, separator = " "), rotate
 
 class TBAResponceError(BaseException):
     """Base error from connections to the blue alliance."""
@@ -344,9 +373,9 @@ class Osborn_Command(cmd.Cmd):
         # Get the results so then query from.
         data = self.load_stats()
 
-        data = query_json(data, query)
+        data, rotate = query_json(data, query)
 
-        return flatten_to_table(data)
+        return flatten_to_table(data, rotate)
 
     @cache_to('matches')
     def load_matches(self):
@@ -447,22 +476,9 @@ class Osborn_Command(cmd.Cmd):
         # Get the results so then query from.
         data = self.load_matches()
 
-        data = query_json(data, query)
+        data, rotate = query_json(data, query)
 
-##        if value and isinstance(value[0], dict):
-##            new_value = [dict_to_list(flatten(value[0]))[0]]
-##            new_value.extend(dict_to_list(flatten(v))[1] for v in value)
-##
-##            value = new_value
-##
-##        elif isinstance(value, dict):
-##            value = dict_to_list(flatten(value))
-
-##        # If there was no path, auto rotate table.
-##        if not path:
-##            value = list(zip(*value))
-
-        return flatten_to_table(data)
+        return flatten_to_table(data, rotate)
 
     @cache_to('predictions')
     def load_predictions(self):
@@ -478,27 +494,24 @@ class Osborn_Command(cmd.Cmd):
 
     def do_predictions(self, value):
         """Respond to a request for matches."""
-        value_getter = self._json_link_resolver(value)
+        data = self.load_matches()
 
-        # Get the results so then query from.
-        data = self.load_predictions()
+        data, rotate = query_json(data, query)
 
-        # Data is a dictionary, through and through.
-        if data is None:
-            self.load_predictions()
-            data = self.cache['predictions']
-
-        value = value_getter(data)
-
-        if isinstance(value, dict):
-            value = dict_to_list(flatten(value))
-
-        return value
+        return flatten_to_table(data, rotate)
 
     @cache_to('insights')
     def load_insights(self):
         """Load the matches from the blue alliance."""
         return self._load_event('insights')
+
+    def do_insights(self, value):
+        """Respond to a request for insights."""
+        data = self.load_matches()
+
+        data, rotate = query_json(data, query)
+
+        return flatten_to_table(data, rotate)
 
 def update_columns(sheet, row, col, columns, execute = True):
     """Update the specified columns. Row and col are the starting most top left
@@ -658,61 +671,4 @@ if __name__ == '__main__':
         url = sys.argv[1]
     else:
         url = raw_input("URL: ").strip()
-    # Sign into google sheets.
-    t = 60
-    while True:
-        try:
-            main(url)
-
-            print("Waiting", end = '', flush = True)
-            time.sleep(t/4)
-            print(".", end = '', flush = True)
-            time.sleep(t/4)
-            print(".", end = '', flush = True)
-            time.sleep(t/4)
-            print(".", end = '', flush = True)
-            time.sleep(t/4)
-            print("") # The newline.
-
-        except KeyboardInterrupt:
-            # Reraise that execptions. Prevent this from
-            # going into the general error case.
-            raise
-
-        except ServerNotFoundError:
-            print("Server not found.")
-            time.sleep(.5) # Wait for things to change.
-
-        except NoEventError:
-            print("No event found on sheet.")
-            time.sleep(.5) # Wait for things to change.
-
-        except BadIndexError:
-            print("Bad index %s" % list(sys.exc_info()[1].args))
-            time.sleep(.5) # Wait for things to change.
-
-        except gspread.exceptions.RequestError:
-            # Connection Error.
-            # Probably caused by dodgy internet on this end. Though it is
-            # impossible to tell. This is a general error.
-            print("gspread.exceptions.RequestError, %s" % list(sys.exc_info()[1].args))
-
-        except gspread.v4.exceptions.APIError:
-            # Invalid request.
-            # Most likey this would cause the sheet to get too big. (Over 2m cells).
-            traceback.print_exc()
-
-        except:
-            # If there is some odd error, keep executing.
-            # This battle station must stay online!!!
-            traceback.print_exc()
-
-            # If we are in debug mode, auto start debugging.
-            if DEBUG:
-                import pdb
-                pdb.post_mortem(sys.exc_info()[2])
-                break
-            else:
-                # Continue execution, however, because internet problems
-                # is possible cause, wait a little to wait for things to change.
-                time.sleep(.5)
+    webhook_server.run(host="", port=9001)
