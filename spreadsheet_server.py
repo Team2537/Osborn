@@ -71,8 +71,6 @@ import time
 import gspread
 import requests
 import traceback
-import json
-from flask import Flask, request
 from pprint import pprint
 from operator import itemgetter
 from collections import OrderedDict
@@ -100,14 +98,33 @@ import dpath
 # >>> unflatten(flatten({'a': {'0':7}}))
 # {'a': [7]}
 
-# Create flask app to listen for webhooks
-webhook_server = Flask(__name__)
+# For using webhooks, use flask.
+try:
+    from flask import Flask, request
+except ImportError:
+    Flask = request = None
+    def handle_webhooks():
+        """Dummy handle so this is still operational as a standalone."""
+        raise ImportError("flask is not installed")
 
-@app.route('/', methods=['POST'])
-def handle_webhooks():
-    data = json.loads(request.data.decode())
-    if (data['message_type'] == "match_score"):
-        print(url)
+    class Webhook_Server():
+        def run(self):
+            """Dummy handle so this is still operational as a standalone."""
+            raise ImportError("flask is not installed")
+
+    webhook_server = Webhook_Server()
+else:
+    # Build webhook.
+    # Create flask app to listen for webhooks
+    webhook_server = Flask(__name__)
+
+    @webhook_server.route('/', methods=['POST'])
+    def handle_webhooks():
+        """Receive input from TBA on update."""
+        data = json.loads(request.data.decode())
+        if (data['message_type'] == "match_score"):
+            print("Running main on data from TBA")
+            main(url)
 
 # To address these issues, prevent numbers and underscores from being keys.
 def _construct_key(previous_key, separator, new_key):
@@ -665,9 +682,87 @@ def main(url):
     stop = time.time()
     print("Updated Sheet in %.3f seconds." % (stop - start))
 
+def run_forever(url, t = 60):
+    # Sign into google sheets.
+    t = 60
+    while True:
+        try:
+            main(url)
+
+            print("Waiting", end = '', flush = True)
+            time.sleep(t/4)
+            print(".", end = '', flush = True)
+            time.sleep(t/4)
+            print(".", end = '', flush = True)
+            time.sleep(t/4)
+            print(".", end = '', flush = True)
+            time.sleep(t/4)
+            print("") # The newline.
+
+        except KeyboardInterrupt:
+            # Reraise that execptions. Prevent this from
+            # going into the general error case.
+            raise
+
+        except ServerNotFoundError:
+            print("Server not found.")
+            time.sleep(.5) # Wait for things to change.
+
+        except NoEventError:
+            print("No event found on sheet.")
+            time.sleep(.5) # Wait for things to change.
+
+        except BadIndexError:
+            print("Bad index %s" % list(sys.exc_info()[1].args))
+            time.sleep(.5) # Wait for things to change.
+
+        except gspread.exceptions.RequestError:
+            # Connection Error.
+            # Probably caused by dodgy internet on this end. Though it is
+            # impossible to tell. This is a general error.
+            print("gspread.exceptions.RequestError, %s" % list(sys.exc_info()[1].args))
+
+        except gspread.v4.exceptions.APIError:
+            # Invalid request.
+            # Most likey this would cause the sheet to get too big. (Over 2m cells).
+            traceback.print_exc()
+
+        except:
+            # If there is some odd error, keep executing.
+            # This battle station must stay online!!!
+            traceback.print_exc()
+
+            # If we are in debug mode, auto start debugging.
+            if DEBUG:
+                import pdb
+                pdb.post_mortem(sys.exc_info()[2])
+                break
+            else:
+                # Continue execution, however, because internet problems
+                # is possible cause, wait a little to wait for things to change.
+                time.sleep(.5)
+
+
+def run_webhook(url, hook="", port = 9001):
+    webhook_server.run(host="", port=9001)
+
+# Allow for a hard set of being a webhook server.
+webhook = None
+
 if __name__ == '__main__':
     if sys.argv[1:]:
         url = sys.argv[1]
     else:
         url = raw_input("URL: ").strip()
-    webhook_server.run(host="", port=9001)
+
+    # Is webhook?
+    if webhook is None:
+        webhook = raw_input("Run as webhook server?: ")[:1].lower() == 'y'
+
+    if webhook:
+        print("Running as webhook server at %s" % url)
+        run_webhook(url)
+    else:
+        print("Running as standalone at %s" % url)
+        run_forever(url)
+
