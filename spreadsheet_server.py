@@ -47,7 +47,7 @@ TODO:
 4)* Investigate Webhooks as a more effecient method for handling updating.
   * https://www.thebluealliance.com/apidocs/webhooks
 """
-DEBUG = True
+DEBUG = False
 
 try:
     unicode
