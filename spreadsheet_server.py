@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Marcus Server
 
@@ -125,6 +126,7 @@ else:
         if (data['message_type'] == "match_score"):
             print("Running main on data from TBA")
             main(url)
+        return "OK" # Most return something.
 
 # To address these issues, prevent numbers and underscores from being keys.
 def _construct_key(previous_key, separator, new_key):
