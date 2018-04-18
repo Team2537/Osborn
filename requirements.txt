@@ -1,1 +1,6 @@
 gspread==2.1.1
+six
+oauth2client
+dpath==1.4.2
+requests>=2.18.4 # Should be redundent under gspread.
+#Flask==0.12.2 # Only needed for webhooks.
