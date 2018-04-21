@@ -607,15 +607,22 @@ else:
     @webhook_server.route('/', methods=['POST'])
     def handle_webhooks():
         """Receive input from TBA on update."""
-##        data = json.loads(request.data.decode())
-        data = request.json
-        if (data.get('message_type') == "match_score"):
-            print("Running main on data from TBA")
-            main(spreadsheet_url)
-            return "OK\n", 200 # Successful
-        else:
-            # The data is in the wrong format.
-            return abort(400)
+        try:
+##          data = json.loads(request.data.decode())
+            data = request.json
+            if (data.get('message_type') == "match_score"):
+                print("Running main on data from TBA")
+                main(spreadsheet_url)
+                return "OK\n", 200 # Successful
+            else:
+                # The data is in the wrong format.
+                return abort(400)
+        finally:
+            try: # Always try to flush the outputs.
+                sys.stdout.flush()
+                sys.stderr.flush()
+            except:
+                pass
 
 def main(url):
     global client, sheet, value, command_cells, command_reader
