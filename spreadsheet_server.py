@@ -398,10 +398,14 @@ class Osborn_Command(cmd.Cmd):
 
                 del videos[5:]
 
-
             # So the event_key is needed to get this data, which includes the
             # event_key. This is just very redundant so remove it.
             del match['event_key']
+
+            # But make sure the "actual_time" aspect exists.
+            if not "actual_time" in match:
+                match["actual_time"] = None
+                
             for alliance in ('red', 'blue'):
                 for team_metric in ('team_keys', 'dq_team_keys', 'surrogate_team_keys'):
                     teams = match['alliances'][alliance][team_metric]
@@ -424,7 +428,7 @@ class Osborn_Command(cmd.Cmd):
                 if match['alliances'][alliance]['score'] == -1:
                     match['alliances'][alliance]['score'] = None
 
-            # Print score_breakdown
+            # Record score_breakdown
             if score_breakdown is None:
                 score_breakdown = match['score_breakdown']
 
