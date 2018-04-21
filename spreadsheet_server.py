@@ -59,10 +59,10 @@ try:
 except NameError:
     basestring = (str, unicode)
 
-try:
-    raw_input
-except NameError:
-    raw_input = input
+##try:
+##    raw_input
+##except NameError:
+##    raw_input = input
 
 import re
 import cmd
@@ -98,35 +98,6 @@ import dpath
 # also not unflatten well.
 # >>> unflatten(flatten({'a': {'0':7}}))
 # {'a': [7]}
-
-# For using webhooks, use flask.
-try:
-    from flask import Flask, request
-except ImportError:
-    Flask = request = None
-    def handle_webhooks():
-        """Dummy handle so this is still operational as a standalone."""
-        raise ImportError("flask is not installed")
-
-    class Webhook_Server():
-        def run(self):
-            """Dummy handle so this is still operational as a standalone."""
-            raise ImportError("flask is not installed")
-
-    webhook_server = Webhook_Server()
-else:
-    # Build webhook.
-    # Create flask app to listen for webhooks
-    webhook_server = Flask(__name__)
-
-    @webhook_server.route('/', methods=['POST'])
-    def handle_webhooks():
-        """Receive input from TBA on update."""
-        data = json.loads(request.data.decode())
-        if (data['message_type'] == "match_score"):
-            print("Running main on data from TBA")
-            main(url)
-        return "OK" # Most return something.
 
 # To address these issues, prevent numbers and underscores from being keys.
 def _construct_key(previous_key, separator, new_key):
@@ -293,24 +264,21 @@ class BadIndexError(GOsbornError):
 
 class Osborn_Command(cmd.Cmd):
     """Simple interface to get data from gsheet."""
-    def __init__(self, event):
+    def __init__(self, event, tba_auth_key = None):
         self.cache = {}
 
         self.event = event
 
-        self.tba_auth_key = None
+        if tba_auth_key is None:
+            self.tba_auth_key = TBA_AUTH_KEY
+        else:
+            self.tba_auth_key = tba_auth_key
 
         cmd.Cmd.__init__(self, completekey=None, stdin=None, stdout=None)
 
     def printcmd(self, cmd):
         """Because everything returns the values, add a printcmd to print out output."""
         pprint(self.onecmd(cmd), stream = self.stdout)
-
-    def get_tba_auth_key(self, file = "client_secret_tba.json"):
-        if not self.tba_auth_key:
-            with open(file) as f:
-                self.tba_auth_key = json.load(f)["tba_auth_key"]
-        return self.tba_auth_key
 
     def cache_to(store_key):
         """Decorator to control the caching of urls."""
@@ -333,14 +301,13 @@ class Osborn_Command(cmd.Cmd):
 
         return cachee
 
-
     def _load_event(self, key):
         """Actually get the data from the blue alliance and return as json."""
         event = self.event
         tba_api = "https://www.thebluealliance.com/api/v3/"
         url = "https://www.thebluealliance.com/api/v3/event/%s/%s?X-TBA-Auth-Key=%s"
 
-        tba_auth_key = self.get_tba_auth_key()
+        tba_auth_key = self.tba_auth_key
 
         r = requests.get(url % (quote(event), quote(key), quote(tba_auth_key)),
                          timeout=timeout)
@@ -614,6 +581,35 @@ def update_columns(sheet, row, col, columns, execute = True):
     else:
         return update_cells
 
+try:
+    from flask import Flask, request
+except ImportError:
+    Flask = request = None
+    def handle_webhooks():
+        """Dummy handle so this is still operational as a standalone."""
+        raise ImportError("flask is not installed")
+
+    class Webhook_Server():
+        def run(self):
+            """Dummy handle so this is still operational as a standalone."""
+            raise ImportError("flask is not installed")
+
+    webhook_server = Webhook_Server()
+else:
+    # Build webhook.
+    # Create flask app to listen for webhooks
+    webhook_server = Flask(__name__)
+
+    @webhook_server.route('/', methods=['POST'])
+    def handle_webhooks():
+        """Receive input from TBA on update."""
+##        data = json.loads(request.data.decode())
+        data = request.json
+        if (data['message_type'] == "match_score"):
+            print("Running main on data from TBA")
+            main(spreadsheet_url)
+        return "OK", 200 # Most return something.
+
 def main(url):
     global client, sheet, value, command_cells, command_reader
     # Sign into google sheets.
@@ -744,27 +740,34 @@ def run_forever(url, t = 60):
                 # is possible cause, wait a little to wait for things to change.
                 time.sleep(.5)
 
-
-def run_webhook(url, hook="", port = 9001):
-    webhook_server.run(host="", port=9001)
+def run_webhook(url):
+    webhook_server.run(host = "", port = 9001)
 
 # Allow for a hard set of being a webhook server.
 webhook = None
 
 if __name__ == '__main__':
-    if sys.argv[1:]:
-        url = sys.argv[1]
-    else:
-        url = raw_input("URL: ").strip()
+    # Get the arguments from the tba_auth_key file.
+    file = "client_secret_tba.json"
+    with open(file) as tba_auth_file:
+        data = json.load(tba_auth_file)
+        TBA_AUTH_KEY    = data["tba_auth_key"]
+        spreadsheet_url = data["spreadsheet_url"]
+        webhook         = bool(data["webhook_server"]) # Just make sure.
 
-    # Is webhook?
-    if webhook is None:
-        webhook = raw_input("Run as webhook server?: ")[:1].lower() == 'y'
+# Input from command line.
+##    if sys.argv[1:]:
+##        url = sys.argv[1]
+##    else:
+##        url = raw_input("URL: ").strip()
+##
+##    # Is webhook?
+##    if webhook is None:
+##        webhook = raw_input("Run as webhook server?: ")[:1].lower() == 'y'
 
     if webhook:
-        print("Running as webhook server at %s" % url)
-        run_webhook(url)
+        print("Running as webhook server at %s" % spreadsheet_url)
+        run_webhook(spreadsheet_url)
     else:
-        print("Running as standalone at %s" % url)
-        run_forever(url)
-
+        print("Running as standalone at %s" % spreadsheet_url)
+        run_forever(spreadsheet_url)
