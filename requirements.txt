@@ -1,4 +1,4 @@
-gspread==2.1.1
+gspread==0.6.2
 six
 oauth2client
 dpath==1.4.2
