@@ -405,7 +405,7 @@ class Osborn_Command(cmd.Cmd):
             # But make sure the "actual_time" aspect exists.
             if not "actual_time" in match:
                 match["actual_time"] = None
-                
+
             for alliance in ('red', 'blue'):
                 for team_metric in ('team_keys', 'dq_team_keys', 'surrogate_team_keys'):
                     teams = match['alliances'][alliance][team_metric]
@@ -586,7 +586,7 @@ def update_columns(sheet, row, col, columns, execute = True):
         return update_cells
 
 try:
-    from flask import Flask, request
+    from flask import Flask, request, abort
 except ImportError:
     Flask = request = None
     def handle_webhooks():
@@ -609,10 +609,13 @@ else:
         """Receive input from TBA on update."""
 ##        data = json.loads(request.data.decode())
         data = request.json
-        if (data['message_type'] == "match_score"):
+        if (data.get('message_type') == "match_score"):
             print("Running main on data from TBA")
             main(spreadsheet_url)
-        return "OK", 200 # Most return something.
+            return "OK\n", 200 # Successful
+        else:
+            # The data is in the wrong format.
+            return abort(400)
 
 def main(url):
     global client, sheet, value, command_cells, command_reader
