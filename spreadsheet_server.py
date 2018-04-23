@@ -127,8 +127,8 @@ def flatten(nested_list_or_dict):
        This also allows lists to be flattened."""
     # If iterable, convert to dict.
     if not isinstance(nested_list_or_dict, dict):
-        nested_list_or_dict = dict([(str(key), value) for key, value in
-                                    enumerate(nested_list_or_dict)])
+        nested_list_or_dict = OrderedDict([(str(key), value) for key, value in
+                                           enumerate(nested_list_or_dict)])
 
         # Now, it will be a dict.
 
