@@ -133,7 +133,8 @@ def flatten(nested_list_or_dict):
         # Now, it will be a dict.
 
     # Note, the seperator is redundant as _construct_key overrides it.
-    return _flatten(nested_list_or_dict, separator = ' ', _construct_key = _construct_key)
+    return _flatten(nested_list_or_dict, separator = ' ', preserve_order = True,
+                    _construct_key = _construct_key)
 
 def flatten_to_table(nested_list_or_dict, rotate = False):
     """Now, flatten is used to make a printable table, so do that."""

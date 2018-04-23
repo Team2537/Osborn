@@ -7,8 +7,8 @@
 # to make this serve our purpose.
 
 # Changed by Matthew Schweiss
-
 from collections import Iterable
+from collections import OrderedDict
 
 ##from util import check_if_numbers_are_consecutive
 # Sorry, I don't see why this deserves it's own modules, taking up the
@@ -37,7 +37,7 @@ def _construct_key(previous_key, separator, new_key):
         return new_key
 
 
-def flatten(nested_dict, separator="_", root_keys_to_ignore=set(), _construct_key = _construct_key):
+def flatten(nested_dict, separator="_", root_keys_to_ignore=set(), preserve_order = False, _construct_key = _construct_key):
     """
     Flattens a dictionary with nested structure to a dictionary with no hierarchy
     Consider ignoring keys that you are not interested in to prevent unnecessary processing
@@ -52,7 +52,7 @@ def flatten(nested_dict, separator="_", root_keys_to_ignore=set(), _construct_ke
     assert isinstance(separator, str), "separator must be a string"
 
     # This global dictionary stores the flattened keys and values and is ultimately returned
-    flattened_dict = dict()
+    flattened_dict = dict() if not preserve_order else OrderedDict()
 
     def _flatten(object_, key):
         """
