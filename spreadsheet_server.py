@@ -314,7 +314,7 @@ class Osborn_Command(cmd.Cmd):
 
         print(r.url)
 
-        data = r.json()
+        data = r.json(object_pairs_hook=OrderedDict)
 
         # if data is None, then there was no responce.
         if data is None:
