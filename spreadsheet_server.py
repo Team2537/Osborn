@@ -324,7 +324,7 @@ class Osborn_Command(cmd.Cmd):
         if "errors" in data:
             raise UnknownTBAError(data["errors"])
 
-        return r.json()
+        return data
 
     @cache_to('stats')
     def load_stats(self):
