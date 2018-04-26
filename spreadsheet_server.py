@@ -484,7 +484,7 @@ class Osborn_Command(cmd.Cmd):
 
     def do_predictions(self, query):
         """Respond to a request for predictions."""
-        data = self.load_matches()
+        data = self.load_predictions()
 
         data, rotate = query_json(data, query)
 
