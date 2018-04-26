@@ -482,26 +482,26 @@ class Osborn_Command(cmd.Cmd):
             if not 'predictions' in self.cache:
                 return {"Error":"No TBA Predictions"}
 
-    def do_predictions(self, value):
-        """Respond to a request for matches."""
+    def do_predictions(self, query):
+        """Respond to a request for predictions."""
         data = self.load_matches()
 
         data, rotate = query_json(data, query)
 
         return flatten_to_table(data, rotate)
 
-    @cache_to('insights')
-    def load_insights(self):
-        """Load the matches from the blue alliance."""
-        return self._load_event('insights')
-
-    def do_insights(self, value):
-        """Respond to a request for insights."""
-        data = self.load_matches()
-
-        data, rotate = query_json(data, query)
-
-        return flatten_to_table(data, rotate)
+##    @cache_to('insights')
+##    def load_insights(self):
+##        """Load the matches from the blue alliance."""
+##        return self._load_event('insights')
+##
+##    def do_insights(self, value):
+##        """Respond to a request for insights."""
+##        data = self.load_matches()
+##
+##        data, rotate = query_json(data, query)
+##
+##        return flatten_to_table(data, rotate)
 
 def update_columns(sheet, row, col, columns, execute = True):
     """Update the specified columns. Row and col are the starting most top left
